@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>lo-fi study</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0815">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --warm: #f0c060;
+    --green: #80d0a0;
+    --blue: #80b8e0;
+    --glass: rgba(15,10,25,0.6);
+    --glass-border: rgba(255,255,255,0.1);
+    --text: #ede6d6;
+    --text-dim: #a89e8e;
+    --text-faint: #6a6055;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0815;
+    color: var(--text);
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    min-height: 100vh; min-height: 100dvh;
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+  }
+  #bgVideo {
+    position: fixed; inset: 0; z-index: 0;
+    width: 100%; height: 100%; object-fit: cover;
+    background: #0a0815;
+    transition: opacity 1s ease;
+  }
+  .grain {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px;
+  }
+  .vignette { position: fixed; inset: 0; z-index: 3; pointer-events: none; background: radial-gradient(ellipse at center, transparent 40%, rgba(5,3,15,0.6) 100%); }
+  .bottom-fade { position: fixed; bottom: 0; left: 0; right: 0; height: 45%; z-index: 3; pointer-events: none; background: linear-gradient(to top, rgba(8,5,18,0.88) 0%, rgba(8,5,18,0.4) 50%, transparent 100%); }
+  .splash {
+    position: fixed; inset: 0; z-index: 999; background: #0a0815;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.8s ease;
+  }
+  .splash.hidden { opacity: 0; pointer-events: none; }
+  .splash-emoji { font-size: 72px; animation: pulse 2s ease infinite; }
+  .splash-text { font-size: 24px; color: var(--text-dim); font-style: italic; letter-spacing: 3px; }
+  .splash-hint { font-size: 17px; color: var(--text-faint); letter-spacing: 1px; }
+  .app {
+    position: relative; z-index: 10;
+    height: 100vh; height: 100dvh;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 28px;
+  }
+  .top-bar { display: flex; justify-content: space-between; align-items: flex-start; animation: fadeDown 1s ease both; }
+  .logo { font-size: 20px; font-weight: 300; letter-spacing: 3px; color: var(--text-dim); font-style: italic; }
+  .top-controls { display: flex; gap: 8px; align-items: center; }
+  .pill {
+    background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border); border-radius: 20px;
+    padding: 8px 18px; font-size: 18px; color: var(--text-dim);
+    cursor: pointer; transition: all 0.4s; font-family: inherit; outline: none;
+  }
+  .pill:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+  .pill.active { border-color: rgba(240,192,96,0.25); color: var(--warm); background: rgba(240,192,96,0.08); }
+  .pill-icon { font-size: 22px; padding: 8px 14px; }
+  .timer-area {
+    position: fixed; top: 50%; right: 48px; transform: translateY(-50%);
+    text-align: right; z-index: 10; animation: fadeLeft 1.2s ease 0.3s both;
+  }
+  .phase-label { font-size: 16px; letter-spacing: 5px; text-transform: uppercase; margin-bottom: 10px; transition: color 0.6s; }
+  .timer-display {
+    font-family: 'DM Mono', 'Courier New', monospace;
+    font-size: clamp(64px, 10vw, 96px); font-weight: 300; letter-spacing: 8px;
+    line-height: 1; color: #fff; text-shadow: 0 0 60px rgba(240,192,96,0.15);
+  }
+  .progress-track { width: 100%; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 16px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 2px; transition: width 1s linear; }
+  .cycle-info { margin-top: 14px; font-size: 17px; color: var(--text-faint); font-weight: 300; letter-spacing: 1px; }
+  .break-card {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20;
+    background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+    border: 1px solid var(--glass-border); border-radius: 24px;
+    padding: 40px 48px; text-align: center; max-width: 420px; width: 90%;
+    animation: scaleIn 0.6s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .break-card .emoji { font-size: 52px; margin-bottom: 16px; }
+  .break-card .title { font-size: 24px; font-weight: 400; margin-bottom: 12px; font-style: italic; }
+  .break-card .desc { font-size: 18px; color: var(--text-dim); line-height: 1.7; font-weight: 300; }
+  .bottom-area { animation: fadeUp 1s ease 0.5s both; }
+  .controls { display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .btn-main {
+    background: linear-gradient(135deg, rgba(204,34,51,0.85), rgba(180,40,60,0.85));
+    border: 1px solid rgba(255,80,80,0.15);
+    border-radius: 16px; padding: 16px 44px; font-size: 19px; font-family: inherit;
+    color: #fff; cursor: pointer; letter-spacing: 1px; transition: all 0.4s; outline: none;
+    box-shadow: 0 8px 32px rgba(180,30,50,0.25);
+  }
+  .btn-ghost {
+    background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border); border-radius: 14px;
+    padding: 14px 28px; font-size: 17px; font-family: inherit; color: var(--text-dim);
+    cursor: pointer; transition: all 0.4s; outline: none;
+  }
+  .btn-minimal { background: none; border: none; padding: 14px 20px; font-size: 16px; font-family: inherit; color: var(--text-faint); cursor: pointer; outline: none; }
+  .duration-row { display: flex; gap: 8px; align-items: center; justify-content: center; margin-bottom: 18px; }
+  .duration-label { font-size: 15px; color: var(--text-faint); margin-right: 8px; letter-spacing: 1px; }
+  .session-info { text-align: center; margin-top: 16px; font-size: 15px; color: var(--text-faint); letter-spacing: 1px; font-weight: 300; }
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeLeft { from{opacity:0;transform:translate(20px,-50%)} to{opacity:1;transform:translate(0,-50%)} }
+  @keyframes scaleIn { from{opacity:0;transform:translate(-50%,-50%) scale(0.9)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+  @keyframes pulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+  @media (max-width: 768px) {
+    .timer-area { position:relative; top:auto; right:auto; transform:none; text-align:center; padding:22vh 0 20px; animation:fadeUp 1.2s ease 0.3s both; }
+    .app { justify-content: flex-end; gap: 20px; padding: 20px; }
+    .break-card { padding: 30px 28px; }
+    .timer-display { font-size: clamp(52px, 14vw, 72px); }
+    .phase-label { font-size: 14px; }
+    .pill { padding: 8px 14px; font-size: 16px; }
+    .pill-icon { font-size: 20px; padding: 8px 12px; }
+  }
+  ::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+<div class="splash" id="splash">
+  <div class="splash-emoji">🍅</div>
+  <div class="splash-text">lo-fi study</div>
+  <div class="splash-hint">tocca per iniziare</div>
+</div>
+<video id="bgVideo" muted playsinline preload="auto"></video>
+<div class="grain"></div>
+<div class="vignette"></div>
+<div class="bottom-fade"></div>
+<div class="app">
+  <div class="top-bar">
+    <div class="logo">lo-fi study</div>
+    <div class="top-controls">
+      <button class="pill pill-icon" id="btnSound" onclick="toggleSound()">🔇</button>
+      <button class="pill" id="btnRain" onclick="setScene('rain')">🌧️</button>
+      <button class="pill" id="btnNight" onclick="setScene('night')">🌙</button>
+      <button class="pill" id="btnGarden" onclick="setScene('garden')">🌿</button>
+    </div>
+  </div>
+  <div class="timer-area">
+    <div class="phase-label" id="phaseLabel" style="color:var(--text-faint)">pronta per studiare?</div>
+    <div class="timer-display" id="timerDisplay">25:00</div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;background:var(--warm)"></div></div>
+    <div class="cycle-info" id="cycleInfo"></div>
+  </div>
+  <div class="break-card" id="breakCard" style="display:none">
+    <div class="emoji" id="breakEmoji"></div>
+    <div class="title" id="breakTitle"></div>
+    <div class="desc" id="breakDesc"></div>
+  </div>
+  <div class="bottom-area">
+    <div id="idleControls">
+      <div class="duration-row">
+        <span class="duration-label">sessione</span>
+        <button class="pill" data-min="20" onclick="setDuration(20)">20'</button>
+        <button class="pill active" data-min="25" onclick="setDuration(25)">25'</button>
+        <button class="pill" data-min="30" onclick="setDuration(30)">30'</button>
+        <button class="pill" data-min="35" onclick="setDuration(35)">35'</button>
+      </div>
+      <div class="controls">
+        <button class="btn-main" onclick="startSession()">inizia a studiare</button>
+      </div>
+      <div class="session-info" id="sessionInfo">25 min studio · 5 min pausa · pausa lunga ogni 4 cicli</div>
+    </div>
+    <div id="runningControls" style="display:none">
+      <div class="controls">
+        <button class="btn-ghost" id="btnPause" onclick="togglePause()">⏸ pausa</button>
+        <button class="btn-ghost" onclick="skipPhase()">⏭ salta</button>
+        <button class="btn-minimal" onclick="resetAll()">↺ reset</button>
+      </div>
+      <div class="session-info" id="runningInfo"></div>
+    </div>
+  </div>
+</div>
+<script>
+var VIDEOS = ['gatto.mp4','ottimo.mp4','video2.mp4'];
+var PHASES = {STUDY:'study',SHORT_BREAK:'short_break',LONG_BREAK:'long_break',IDLE:'idle'};
+var SHORT_BREAK=5, LONG_BREAK=20, CYCLES_FOR_LONG=4;
+var MOVEMENTS = [
+  {emoji:'🌊',title:'Respira con il mare',desc:'Inspira 4 secondi, trattieni 4, espira 6. Ripeti 5 volte.'},
+  {emoji:'🌀',title:'Ruota le spalle',desc:'10 cerchi in avanti, 10 indietro. Lentamente.'},
+  {emoji:'🌱',title:'Stretching gatto',desc:'In piedi, allungati verso l\'alto poi piegati in avanti. Tieni 10 secondi.'},
+  {emoji:'👀',title:'Riposa gli occhi',desc:'Guarda qualcosa a 6 metri per 20 secondi. Ripeti 3 volte.'},
+  {emoji:'🦋',title:'Ali di farfalla',desc:'Braccia larghe, fai piccoli cerchi. 15 avanti, 15 indietro.'},
+  {emoji:'🌙',title:'Collo morbido',desc:'Inclina la testa a destra 10 sec, a sinistra 10 sec, avanti 10 sec.'},
+  {emoji:'🐈',title:'Cammina un po\'',desc:'Alzati e fai un giro della stanza. Bevi un bicchiere d\'acqua.'},
+  {emoji:'🫧',title:'Scuoti tutto',desc:'Scuoti le mani 10 secondi, poi i piedi. Lascia andare la tensione.'},
+  {emoji:'🌿',title:'Torsione dolce',desc:'Seduta, ruota il busto a destra 10 sec. Poi a sinistra.'},
+  {emoji:'☁️',title:'Respiro 4-7-8',desc:'Inspira 4 sec, trattieni 7 sec, espira 8 sec. Per 3 cicli.'},
+  {emoji:'🧘',title:'Equilibrio',desc:'In piedi su un piede solo, 15 secondi per lato. Concentrati su un punto.'},
+  {emoji:'💧',title:'Idratazione',desc:'Bevi un bicchiere d\'acqua lentamente. Ogni sorso con calma.'},
+];
+var phase=PHASES.IDLE, studyMinutes=25, timeLeft=25*60;
+var running=false, cycles=0, totalStudy=0, intervalId=null, currentMovement=null;
+var scene='rain', soundOn=false, audioCtx=null, audioNodes=[];
+var wakeLock=null, videoStarted=false;
+function $(id){return document.getElementById(id);}
+
+// VIDEO
+var vid = $('bgVideo');
+var vidIdx = Math.floor(Math.random()*VIDEOS.length);
+vid.src = VIDEOS[vidIdx];
+vid.load();
+
+vid.addEventListener('ended', function(){
+  var next;
+  do{next=Math.floor(Math.random()*VIDEOS.length);}while(next===vidIdx&&VIDEOS.length>1);
+  vidIdx=next;
+  vid.style.opacity='0';
+  setTimeout(function(){
+    vid.src=VIDEOS[vidIdx];
+    vid.load();
+    vid.play().catch(function(){});
+    setTimeout(function(){vid.style.opacity='1';},300);
+  },1000);
+});
+
+function startVideo(){
+  vid.play().catch(function(){});
+  videoStarted=true;
+  try{if('wakeLock' in navigator){navigator.wakeLock.request('screen').then(function(w){wakeLock=w;}).catch(function(){});}}catch(e){}
+  $('splash').classList.add('hidden');
+}
+$('splash').addEventListener('click', startVideo);
+$('splash').addEventListener('touchend', function(e){e.preventDefault();startVideo();});
+try{var p=vid.play();if(p)p.then(function(){videoStarted=true;$('splash').classList.add('hidden');}).catch(function(){});}catch(e){}
+
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'&&videoStarted){vid.play().catch(function(){});if(running)try{navigator.wakeLock.request('screen').then(function(w){wakeLock=w;}).catch(function(){});}catch(e){}}
+});
+
+// CHIME
+function playChime(){
+  try{
+    var c=new(window.AudioContext||window.webkitAudioContext)();var t=c.currentTime;
+    var cb=c.createBuffer(1,c.sampleRate*0.08,c.sampleRate);var cd=cb.getChannelData(0);
+    for(var i=0;i<cd.length;i++)cd[i]=(Math.random()*2-1)*Math.exp(-i/(c.sampleRate*0.008));
+    var cs=c.createBufferSource();cs.buffer=cb;
+    var cf=c.createBiquadFilter();cf.type='bandpass';cf.frequency.value=2000;cf.Q.value=3;
+    var cg=c.createGain();cg.gain.value=0.3;
+    cs.connect(cf).connect(cg).connect(c.destination);cs.start(t);
+    var o1=c.createOscillator();o1.type='sine';o1.frequency.value=659.25;
+    var g1=c.createGain();g1.gain.setValueAtTime(0,t+0.05);g1.gain.linearRampToValueAtTime(0.35,t+0.12);g1.gain.exponentialRampToValueAtTime(0.001,t+2.5);
+    o1.connect(g1).connect(c.destination);o1.start(t+0.05);o1.stop(t+2.5);
+    var o2=c.createOscillator();o2.type='sine';o2.frequency.value=880;
+    var g2=c.createGain();g2.gain.setValueAtTime(0,t+0.6);g2.gain.linearRampToValueAtTime(0.25,t+0.68);g2.gain.exponentialRampToValueAtTime(0.001,t+3.2);
+    o2.connect(g2).connect(c.destination);o2.start(t+0.6);o2.stop(t+3.2);
+    var o3=c.createOscillator();o3.type='sine';o3.frequency.value=1108.73;
+    var g3=c.createGain();g3.gain.setValueAtTime(0,t+1.2);g3.gain.linearRampToValueAtTime(0.12,t+1.28);g3.gain.exponentialRampToValueAtTime(0.001,t+3.5);
+    o3.connect(g3).connect(c.destination);o3.start(t+1.2);o3.stop(t+3.5);
+  }catch(e){}
+}
+
+// TIMER
+function tick(){
+  if(!running)return;
+  if(timeLeft>0){timeLeft--;if(phase===PHASES.STUDY)totalStudy++;updateUI();}
+  else{
+    playChime();
+    if(phase===PHASES.STUDY){cycles++;if(cycles%CYCLES_FOR_LONG===0){phase=PHASES.LONG_BREAK;timeLeft=LONG_BREAK*60;}else{phase=PHASES.SHORT_BREAK;timeLeft=SHORT_BREAK*60;}currentMovement=MOVEMENTS[Math.floor(Math.random()*MOVEMENTS.length)];}
+    else{phase=PHASES.STUDY;timeLeft=studyMinutes*60;currentMovement=null;}
+    updateUI();
+  }
+}
+function startSession(){phase=PHASES.STUDY;timeLeft=studyMinutes*60;running=true;currentMovement=null;if(intervalId)clearInterval(intervalId);intervalId=setInterval(tick,1000);try{if('wakeLock' in navigator)navigator.wakeLock.request('screen').then(function(w){wakeLock=w;}).catch(function(){});}catch(e){}updateUI();}
+function togglePause(){running=!running;updateUI();}
+function skipPhase(){if(phase===PHASES.STUDY){cycles++;if(cycles%CYCLES_FOR_LONG===0){phase=PHASES.LONG_BREAK;timeLeft=LONG_BREAK*60;}else{phase=PHASES.SHORT_BREAK;timeLeft=SHORT_BREAK*60;}currentMovement=MOVEMENTS[Math.floor(Math.random()*MOVEMENTS.length)];}else{phase=PHASES.STUDY;timeLeft=studyMinutes*60;currentMovement=null;}updateUI();}
+function resetAll(){running=false;phase=PHASES.IDLE;timeLeft=studyMinutes*60;cycles=0;totalStudy=0;currentMovement=null;if(intervalId)clearInterval(intervalId);if(wakeLock){wakeLock.release();wakeLock=null;}updateUI();}
+function setDuration(min){studyMinutes=min;timeLeft=min*60;document.querySelectorAll('.duration-row .pill').forEach(function(p){p.classList.toggle('active',parseInt(p.dataset.min)===min);});$('sessionInfo').textContent=min+' min studio · '+SHORT_BREAK+' min pausa · pausa lunga ogni '+CYCLES_FOR_LONG+' cicli';updateUI();}
+
+// UI
+function updateUI(){
+  var m=Math.floor(timeLeft/60),s=timeLeft%60;
+  $('timerDisplay').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  var label=$('phaseLabel');
+  if(phase===PHASES.STUDY){label.textContent='studio';label.style.color='var(--warm)';}
+  else if(phase===PHASES.SHORT_BREAK){label.textContent='pausa breve';label.style.color='var(--green)';}
+  else if(phase===PHASES.LONG_BREAK){label.textContent='pausa lunga';label.style.color='var(--blue)';}
+  else{label.textContent='pronta per studiare?';label.style.color='var(--text-faint)';}
+  var total=phase===PHASES.STUDY?studyMinutes*60:phase===PHASES.SHORT_BREAK?SHORT_BREAK*60:phase===PHASES.LONG_BREAK?LONG_BREAK*60:studyMinutes*60;
+  var pct=((total-timeLeft)/total)*100;
+  $('progressFill').style.width=pct+'%';
+  $('progressFill').style.background=phase===PHASES.STUDY?'var(--warm)':phase===PHASES.SHORT_BREAK?'var(--green)':phase===PHASES.LONG_BREAK?'var(--blue)':'var(--warm)';
+  $('cycleInfo').textContent=(cycles>0||phase!==PHASES.IDLE)?'🍅 '+cycles+' cicli · '+Math.floor(totalStudy/60)+' min studiati':'';
+  $('idleControls').style.display=phase===PHASES.IDLE?'block':'none';
+  $('runningControls').style.display=phase!==PHASES.IDLE?'block':'none';
+  $('btnPause').innerHTML=running?'⏸ pausa':'▶ riprendi';
+  if(phase!==PHASES.IDLE){$('runningInfo').textContent=phase===PHASES.STUDY?((cycles+1)%CYCLES_FOR_LONG===0?'pausa lunga dopo questo ciclo':(CYCLES_FOR_LONG-(cycles%CYCLES_FOR_LONG)-1)+' cicli alla pausa lunga'):'prossimo: studio';}
+  if((phase===PHASES.SHORT_BREAK||phase===PHASES.LONG_BREAK)&&currentMovement){$('breakCard').style.display='block';$('breakEmoji').textContent=currentMovement.emoji;$('breakTitle').textContent=currentMovement.title;$('breakDesc').textContent=currentMovement.desc;}else{$('breakCard').style.display='none';}
+}
+
+// AMBIENT
+function startAmbient(){
+  stopAmbient();audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  var master=audioCtx.createGain();master.gain.value=0.25;master.connect(audioCtx.destination);
+  var len=2*audioCtx.sampleRate;var buf=audioCtx.createBuffer(2,len,audioCtx.sampleRate);
+  for(var ch=0;ch<2;ch++){var d=buf.getChannelData(ch);var l=0;for(var i=0;i<len;i++){var w=Math.random()*2-1;d[i]=(l+0.02*w)/1.02;l=d[i];d[i]*=3.5;}}
+  var noise=audioCtx.createBufferSource();noise.buffer=buf;noise.loop=true;
+  var nf=audioCtx.createBiquadFilter();nf.type='lowpass';nf.frequency.value=scene==='rain'?900:scene==='night'?350:600;nf.Q.value=0.7;
+  var ng=audioCtx.createGain();ng.gain.value=scene==='rain'?0.5:scene==='night'?0.25:0.35;
+  noise.connect(nf).connect(ng).connect(master);noise.start();audioNodes.push(noise);
+  var cBuf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);var cd2=cBuf.getChannelData(0);
+  for(var j=0;j<len;j++){cd2[j]=Math.random()<0.003?(Math.random()*2-1)*0.4:0;}
+  var crackle=audioCtx.createBufferSource();crackle.buffer=cBuf;crackle.loop=true;
+  var cg2=audioCtx.createGain();cg2.gain.value=0.12;crackle.connect(cg2).connect(master);crackle.start();audioNodes.push(crackle);
+  var freqs={rain:130.81,night:98,garden:164.81};
+  var o=audioCtx.createOscillator();o.type='sine';o.frequency.value=freqs[scene]||130.81;
+  var of2=audioCtx.createBiquadFilter();of2.type='lowpass';of2.frequency.value=250;
+  var og=audioCtx.createGain();og.gain.value=0.04;o.connect(of2).connect(og).connect(master);o.start();audioNodes.push(o);
+  var o2=audioCtx.createOscillator();o2.type='sine';o2.frequency.value=o.frequency.value*1.498;
+  var og2=audioCtx.createGain();og2.gain.value=0.02;o2.connect(og2).connect(master);o2.start();audioNodes.push(o2);
+}
+function stopAmbient(){audioNodes.forEach(function(n){try{n.stop();}catch(e){}});audioNodes=[];if(audioCtx){try{audioCtx.close();}catch(e){}audioCtx=null;}}
+function toggleSound(){soundOn=!soundOn;var b=$('btnSound');if(soundOn){startAmbient();b.textContent='🔊';b.classList.add('active');}else{stopAmbient();b.textContent='🔇';b.classList.remove('active');}}
+function setScene(s){scene=s;['btnRain','btnNight','btnGarden'].forEach(function(id){$(id).classList.remove('active');});$('btn'+s.charAt(0).toUpperCase()+s.slice(1)).classList.add('active');if(soundOn)startAmbient();}
+
+document.addEventListener('keydown',function(e){
+  if(e.code==='Space'&&phase!==PHASES.IDLE){e.preventDefault();togglePause();}
+  if(e.code==='KeyS'&&phase===PHASES.IDLE)startSession();
+  if(e.code==='KeyR')resetAll();
+  if(e.code==='KeyM')toggleSound();
+});
+updateUI();
+</script>
+</body>
+</html>

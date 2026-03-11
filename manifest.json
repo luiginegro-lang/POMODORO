@@ -1,0 +1,17 @@
+{
+  "name": "Lo-Fi Study",
+  "short_name": "Lo-Fi Study",
+  "description": "Timer di studio con video lo-fi e pause attive",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0815",
+  "theme_color": "#0a0815",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍅</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
