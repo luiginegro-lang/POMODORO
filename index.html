@@ -205,9 +205,20 @@ var MOVEMENTS = [
 ];
 var phase=PHASES.IDLE, studyMinutes=25, timeLeft=25*60;
 var running=false, cycles=0, totalStudy=0, intervalId=null, currentMovement=null;
-var scene='rain', soundOn=false, audioCtx=null, audioNodes=[];
+var scene='rain', soundOn=false, audioNodes=[];
 var wakeLock=null, videoStarted=false;
+var sharedAudioCtx=null; // created on first tap, reused everywhere
 function $(id){return document.getElementById(id);}
+
+function getAudioCtx(){
+  if(!sharedAudioCtx){
+    sharedAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  }
+  if(sharedAudioCtx.state==='suspended'){
+    sharedAudioCtx.resume();
+  }
+  return sharedAudioCtx;
+}
 
 // VIDEO
 var vid = $('bgVideo');
@@ -231,6 +242,8 @@ vid.addEventListener('ended', function(){
 function startVideo(){
   vid.play().catch(function(){});
   videoStarted=true;
+  // Unlock audio on iOS by creating AudioContext during user gesture
+  getAudioCtx();
   try{if('wakeLock' in navigator){navigator.wakeLock.request('screen').then(function(w){wakeLock=w;}).catch(function(){});}}catch(e){}
   $('splash').classList.add('hidden');
 }
@@ -245,7 +258,7 @@ document.addEventListener('visibilitychange',function(){
 // CHIME
 function playChime(){
   try{
-    var c=new(window.AudioContext||window.webkitAudioContext)();var t=c.currentTime;
+    var c=getAudioCtx();var t=c.currentTime;
     var cb=c.createBuffer(1,c.sampleRate*0.08,c.sampleRate);var cd=cb.getChannelData(0);
     for(var i=0;i<cd.length;i++)cd[i]=(Math.random()*2-1)*Math.exp(-i/(c.sampleRate*0.008));
     var cs=c.createBufferSource();cs.buffer=cb;
@@ -304,26 +317,27 @@ function updateUI(){
 
 // AMBIENT
 function startAmbient(){
-  stopAmbient();audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  var master=audioCtx.createGain();master.gain.value=0.25;master.connect(audioCtx.destination);
-  var len=2*audioCtx.sampleRate;var buf=audioCtx.createBuffer(2,len,audioCtx.sampleRate);
+  stopAmbient();var ac=getAudioCtx();
+  var master=ac.createGain();master.gain.value=0.25;master.connect(ac.destination);
+  audioNodes.push(master);
+  var len=2*ac.sampleRate;var buf=ac.createBuffer(2,len,ac.sampleRate);
   for(var ch=0;ch<2;ch++){var d=buf.getChannelData(ch);var l=0;for(var i=0;i<len;i++){var w=Math.random()*2-1;d[i]=(l+0.02*w)/1.02;l=d[i];d[i]*=3.5;}}
-  var noise=audioCtx.createBufferSource();noise.buffer=buf;noise.loop=true;
-  var nf=audioCtx.createBiquadFilter();nf.type='lowpass';nf.frequency.value=scene==='rain'?900:scene==='night'?350:600;nf.Q.value=0.7;
-  var ng=audioCtx.createGain();ng.gain.value=scene==='rain'?0.5:scene==='night'?0.25:0.35;
+  var noise=ac.createBufferSource();noise.buffer=buf;noise.loop=true;
+  var nf=ac.createBiquadFilter();nf.type='lowpass';nf.frequency.value=scene==='rain'?900:scene==='night'?350:600;nf.Q.value=0.7;
+  var ng=ac.createGain();ng.gain.value=scene==='rain'?0.5:scene==='night'?0.25:0.35;
   noise.connect(nf).connect(ng).connect(master);noise.start();audioNodes.push(noise);
-  var cBuf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);var cd2=cBuf.getChannelData(0);
+  var cBuf=ac.createBuffer(1,len,ac.sampleRate);var cd2=cBuf.getChannelData(0);
   for(var j=0;j<len;j++){cd2[j]=Math.random()<0.003?(Math.random()*2-1)*0.4:0;}
-  var crackle=audioCtx.createBufferSource();crackle.buffer=cBuf;crackle.loop=true;
-  var cg2=audioCtx.createGain();cg2.gain.value=0.12;crackle.connect(cg2).connect(master);crackle.start();audioNodes.push(crackle);
+  var crackle=ac.createBufferSource();crackle.buffer=cBuf;crackle.loop=true;
+  var cg2=ac.createGain();cg2.gain.value=0.12;crackle.connect(cg2).connect(master);crackle.start();audioNodes.push(crackle);
   var freqs={rain:130.81,night:98,garden:164.81};
-  var o=audioCtx.createOscillator();o.type='sine';o.frequency.value=freqs[scene]||130.81;
-  var of2=audioCtx.createBiquadFilter();of2.type='lowpass';of2.frequency.value=250;
-  var og=audioCtx.createGain();og.gain.value=0.04;o.connect(of2).connect(og).connect(master);o.start();audioNodes.push(o);
-  var o2=audioCtx.createOscillator();o2.type='sine';o2.frequency.value=o.frequency.value*1.498;
-  var og2=audioCtx.createGain();og2.gain.value=0.02;o2.connect(og2).connect(master);o2.start();audioNodes.push(o2);
+  var o=ac.createOscillator();o.type='sine';o.frequency.value=freqs[scene]||130.81;
+  var of2=ac.createBiquadFilter();of2.type='lowpass';of2.frequency.value=250;
+  var og=ac.createGain();og.gain.value=0.04;o.connect(of2).connect(og).connect(master);o.start();audioNodes.push(o);
+  var o2=ac.createOscillator();o2.type='sine';o2.frequency.value=o.frequency.value*1.498;
+  var og2=ac.createGain();og2.gain.value=0.02;o2.connect(og2).connect(master);o2.start();audioNodes.push(o2);
 }
-function stopAmbient(){audioNodes.forEach(function(n){try{n.stop();}catch(e){}});audioNodes=[];if(audioCtx){try{audioCtx.close();}catch(e){}audioCtx=null;}}
+function stopAmbient(){audioNodes.forEach(function(n){try{n.stop();}catch(e){try{n.disconnect();}catch(e2){}}});audioNodes=[];}
 function toggleSound(){soundOn=!soundOn;var b=$('btnSound');if(soundOn){startAmbient();b.textContent='🔊';b.classList.add('active');}else{stopAmbient();b.textContent='🔇';b.classList.remove('active');}}
 function setScene(s){scene=s;['btnRain','btnNight','btnGarden'].forEach(function(id){$(id).classList.remove('active');});$('btn'+s.charAt(0).toUpperCase()+s.slice(1)).classList.add('active');if(soundOn)startAmbient();}
 
